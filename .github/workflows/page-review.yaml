@@ -1,4 +1,4 @@
-name: Embed
+name: Page Review
 
 on:
   workflow_dispatch:

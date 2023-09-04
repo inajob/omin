@@ -1,0 +1,29 @@
+name: Embed
+
+on:
+  workflow_dispatch:
+
+env:
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+  QDRANT_URL: ${{ secrets.QDRANT_URL }}
+  PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
+  INLINE_TOKEN: ${{ secrets.INLINE_TOKEN }}
+
+jobs:
+  build:
+    permissions:
+      contents: 'read'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10.4'
+          cache: 'pip' # caching pip dependencies
+      - run: pip install -r requirements.txt
+      - name: page review
+        run: python page-reviewer.py
+
+

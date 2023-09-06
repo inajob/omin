@@ -140,6 +140,9 @@ def parseHeader(body):
           if l == "[ask to inline]":
             collection = "inline"
             continue
+          if l == "[ask to ina_ani]":
+            collection = "tweets_ina_ani"
+            continue
           if l == "[ask to pickles]":
             collection = "pickles"
             continue
@@ -193,7 +196,10 @@ def process_page(title):
     )
     """
 
-    prompt = "あなたは新しい発想を支援する好奇心旺盛なエンジニアの同僚です。fragmentsから得られる情報を使いmain contentへのアドバイスや感想を記述してください\n"
+    systemPrompt = "あなたは新しい発想を支援する好奇心旺盛なエンジニアinajobの同僚のominです。"
+    userPrompt = "ominの知識であるfragmentsから得られる情報を使いinajobの書いたmain contentに関係が深い考え方を日本語で箇条書きして"
+    prompt = ""
+    fragments = ""
     #prompt = "You are my curious engineer colleague, fluent in Japanese. Read fragments and write your advices and comments for main content.You should use Japanese.\n"
 
     # 「order + 元ページ」のベクトルを計算する
@@ -237,14 +243,17 @@ def process_page(title):
 
     if(len(similarPages) > 0):
       # fragmentsは順に10個まで選ぶ
-      for i in range(min(10, len(similarPages))):
+      n = 10
+      if collection == "tweets_ina_ani":
+          n = 50
+      for i in range(min(n, len(similarPages))):
           r = similarPages[i] #random.choice(similarPages)
           if check.get(r[0]) == None:
             check[r[0]] = True
             pages.append(r)
 
-    preludeSize = get_vec.get_size(prompt)
-    MAXSIZE = 4000-500-preludeSize
+    preludeSize = get_vec.get_size(systemPrompt + userPrompt)
+    MAXSIZE = 4000-900-preludeSize
     size_par_page = MAXSIZE/(len(pages) + 1)
 
     limit = MAXSIZE
@@ -263,12 +272,12 @@ def process_page(title):
         prompt += "\n### main content\n" + order
         limit -= get_vec.get_size(order)
 
-    prompt += "\n---\n### fragments\n"
+    fragments += "### fragments\n"
 
     # 乗せれる限りfragmentsを乗せる
     for p in pages:
         #digest, s = get(p, size_par_page)
-        digest = "\n# " + p[0] +"\n" + p[1]
+        digest = "\n# " + p[0] +"\n" + p[1] + "\n"
         s = get_vec.get_size(p[1])
         print("process",p[0])
         #print(digest, s)
@@ -276,18 +285,23 @@ def process_page(title):
         if limit < 0:
             print("limit over")
             break
-        prompt += digest
+        fragments += digest
         used_pages.append(p[0])
     print("limit",limit)
 
+    print(systemPrompt)
     print(prompt)
+    print(fragments)
     print()
     import openai
     response = openai.ChatCompletion.create(
       model="gpt-3.5-turbo",
       #model="gpt-3.5-turbo-16k",
       messages=[
-        {"role": "user", "content": prompt}
+        {"role": "system", "content": systemPrompt}, # あなたは～
+        {"role": "assistant", "content": prompt}, # main contents
+        {"role": "assistant", "content": fragments}, # fragments
+        {"role": "user", "content": userPrompt}, # 
       ],
       n = 1,
       temperature=0.0,
@@ -315,7 +329,7 @@ for p in targetPages:
         out.append("## used pages")
         out.append(",".join(pages))
     body = "\n".join(out)
-    body += "\n" + remainBody
     print(body, lastUpdate)
+    body += "\n" + remainBody
     inline.post_page(INLINE_TOKEN, lastUpdate, p, body)
 
